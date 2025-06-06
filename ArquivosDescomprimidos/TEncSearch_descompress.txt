@@ -1,0 +1,217 @@
+i  uxUkH laUmRe, true);
+  
+  intPtr = m_filteredBlockTmp[0].getLumaAddr() + (halfFilterSize-1) * intStride + 1;  
+  dstPtr = m_filteredBlock[2][0].getLumaAddr();
+  m_if.filterVerLuma(intPtr, intStride, dstPtr, dstStride, width+0, height+1, 2, false, true);
+  
+  intPtr = m_filteredBlockTmp[2].getLumaAddr() + halfFilterSize * intStride;
+  dstPtr = m_filteredBlock[0][2].getLumaAddr();
+  m_if.filterVerLuma(intPtr, intStride, dstPtr, dstStride, width+1, height+0, 0, false, true);
+  
+  intPtr = m_filteredBlockTmp[2].getLumaAddr() + (halfFilterSize-1) * intStride;
+  dstPtr = m_filteredBlock[2][2].getLumaAddr();
+  m_if.filterVerLuma(intPtr, intStride, dstPtr, dstStride, width+1, height+1, 2, false, true);
+}
+
+/**
+ * \brief Generate quarter-sample interpolated blocks
+ *
+ * \param pattern    Reference picture ROI
+ * \param halfPelRef Half-pel mv
+ * \param biPred     Flag indicating whether block is for biprediction
+ */
+Void TEncSearch::xExtDIFUpSamplingQ( TComPattern* pattern, TComMv halfPelRef, Bool biPred )
+{
+  Int width      = pattern->getROIYWidth();
+  Int height     = pattern->getROIYHeight();
+  Int srcStride  = pattern->getPatternLStride();
+  
+  Pel *srcPtr;
+  Int intStride = m_filteredBlockTmp[0].getStride();
+  Int dstStride = m_filteredBlock[0][0].getStride();
+  Short *intPtr;
+  Short *dstPtr;
+  Int filterSize = NTAPS_LUMA;
+  
+  Int halfFilterSize = (filterSize>>1);
+
+  Int extHeight = (halfPelRef.getVer() == 0) ? height + filterSize : height + filterSize-1;
+  
+  // Horizontal filter 1/4
+  srcPtr = pattern->getROIY() - halfFilterSize * srcStride - 1;
+  intPtr = m_filteredBlockTmp[1].getLumaAddr();
+  if (halfPelRef.getVer() > 0)
+  {
+    srcPtr += srcStride;
+  }
+  if (halfPelRef.getHor() >= 0)
+  {
+    srcPtr += 1;
+  }
+  m_if.filterHorLuma(srcPtr, srcStride, intPtr, intStride, width, extHeight, 1, false);
+  
+  // Horizontal filter 3/4
+  srcPtr = pattern->getROIY() - halfFilterSize*srcStride - 1;
+  intPtr = m_filteredBlockTmp[3].getLumaAddr();
+  if (halfPelRef.getVer() > 0)
+  {
+    srcPtr += srcStride;
+  }
+  if (halfPelRef.getHor() > 0)
+  {
+    srcPtr += 1;
+  }
+  m_if.filterHorLuma(srcPtr, srcStride, intPtr, intStride, width, extHeight, 3, false);        
+  
+  // Generate @ 1,1
+  intPtr = m_filteredBlockTmp[1].getLumaAddr() + (halfFilterSize-1) * intStride;
+  dstPtr = m_filteredBlock[1][1].getLumaAddr();
+  if (halfPelRef.getVer() == 0)
+  {
+    intPtr += intStride;
+  }
+  m_if.filterVerLuma(intPtr, intStride, dstPtr, dstStride, width, height, 1, false, true);
+  
+  // Generate @ 3,1
+  intPtr = m_filteredBlockTmp[1].getLumaAddr() + (halfFilterSize-1) * intStride;
+  dstPtr = m_filteredBlock[3][1].getLumaAddr();
+  m_if.filterVerLuma(intPtr, intStride, dstPtr, dstStride, width, height, 3, false, true);
+  
+  if (halfPelRef.getVer() != 0)
+  {
+    // Generate @ 2,1
+    intPtr = m_filteredBlockTmp[1].getLumaAddr() + (halfFilterSize-1) * intStride;
+    dstPtr = m_filteredBlock[2][1].getLumaAddr();
+    if (halfPelRef.getVer() == 0)
+    {
+      intPtr += intStride;
+    }
+    m_if.filterVerLuma(intPtr, intStride, dstPtr, dstStride, width, height, 2, false, true);
+    
+    // Generate @ 2,3
+    intPtr = m_filteredBlockTmp[3].getLumaAddr() + (halfFilterSize-1) * intStride;
+    dstPtr = m_filteredBlock[2][3].getLumaAddr();
+    if (halfPelRef.getVer() == 0)
+    {
+      intPtr += intStride;
+    }
+    m_if.filterVerLuma(intPtr, intStride, dstPtr, dstStride, width, height, 2, false, true);
+  }
+  else
+  {
+    // Generate @ 0,1
+    intPtr = m_filteredBlockTmp[1].getLumaAddr() + halfFilterSize * intStride;
+    dstPtr = m_filteredBlock[0][1].getLumaAddr();
+    m_if.filterVerLuma(intPtr, intStride, dstPtr, dstStride, width, height, 0, false, true);
+    
+    // Generate @ 0,3
+    intPtr = m_filteredBlockTmp[3].getLumaAddr() + halfFilterSize * intStride;
+    dstPtr = m_filteredBlock[0][3].getLumaAddr();
+    m_if.filterVerLuma(intPtr, intStride, dstPtr, dstStride, width, height, 0, false, true);
+  }
+  
+  if (halfPelRef.getHor() != 0)
+  {
+    // Generate @ 1,2
+    intPtr = m_filteredBlockTmp[2].getLumaAddr() + (halfFilterSize-1) * intStride;
+    dstPtr = m_filteredBlock[1][2].getLumaAddr();
+    if (halfPelRef.getHor() > 0)
+    {
+      intPtr += 1;
+    }
+    if (halfPelRef.getVer() >= 0)
+    {
+      intPtr += intStride;
+    }
+    m_if.filterVerLuma(intPtr, intStride, dstPtr, dstStride, width, height, 1, false, true);
+    
+    // Generate @ 3,2
+    intPtr = m_filteredBlockTmp[2].getLumaAddr() + (halfFilterSize-1) * intStride;
+    dstPtr = m_filteredBlock[3][2].getLumaAddr();
+    if (halfPelRef.getHor() > 0)
+    {
+      intPtr += 1;
+    }
+    if (halfPelRef.getVer() > 0)
+    {
+      intPtr += intStride;
+    }
+    m_if.filterVerLuma(intPtr, intStride, dstPtr, dstStride, width, height, 3, false, true);  
+  }
+  else
+  {
+    // Generate @ 1,0
+    intPtr = m_filteredBlockTmp[0].getLumaAddr() + (halfFilterSize-1) * intStride + 1;
+    dstPtr = m_filteredBlock[1][0].getLumaAddr();
+    if (halfPelRef.getVer() >= 0)
+    {
+      intPtr += intStride;
+    }
+    m_if.filterVerLuma(intPtr, intStride, dstPtr, dstStride, width, height, 1, false, true);
+    
+    // Generate @ 3,0
+    intPtr = m_filteredBlockTmp[0].getLumaAddr() + (halfFilterSize-1) * intStride + 1;
+    dstPtr = m_filteredBlock[3][0].getLumaAddr();
+    if (halfPelRef.getVer() > 0)
+    {
+      intPtr += intStride;
+    }
+    m_if.filterVerLuma(intPtr, intStride, dstPtr, dstStride, width, height, 3, false, true);
+  }
+  
+  // Generate @ 1,3
+  intPtr = m_filteredBlockTmp[3].getLumaAddr() + (halfFilterSize-1) * intStride;
+  dstPtr = m_filteredBlock[1][3].getLumaAddr();
+  if (halfPelRef.getVer() == 0)
+  {
+    intPtr += intStride;
+  }
+  m_if.filterVerLuma(intPtr, intStride, dstPtr, dstStride, width, height, 1, false, true);
+  
+  // Generate @ 3,3
+  intPtr = m_filteredBlockTmp[3].getLumaAddr() + (halfFilterSize-1) * intStride;
+  dstPtr = m_filteredBlock[3][3].getLumaAddr();
+  m_if.filterVerLuma(intPtr, intStride, dstPtr, dstStride, width, height, 3, false, true);
+}
+
+/** set wp tables
+ * \param TComDataCU* pcCU
+ * \param iRefIdx
+ * \param eRefPicListCur
+ * \returns Void
+ */
+Void  TEncSearch::setWpScalingDistParam( TComDataCU* pcCU, Int iRefIdx, RefPicList eRefPicListCur )
+{
+  if ( iRefIdx<0 )
+  {
+    m_cDistParam.bApplyWeight = false;
+    return;
+  }
+
+  TComSlice       *pcSlice  = pcCU->getSlice();
+  TComPPS         *pps      = pcCU->getSlice()->getPPS();
+  wpScalingParam  *wp0 , *wp1;
+  m_cDistParam.bApplyWeight = ( pcSlice->getSliceType()==P_SLICE && pps->getUseWP() ) || ( pcSlice->getSliceType()==B_SLICE && pps->getWPBiPred() ) ;
+  if ( !m_cDistParam.bApplyWeight ) return;
+
+  Int iRefIdx0 = ( eRefPicListCur == REF_PIC_LIST_0 ) ? iRefIdx : (-1);
+  Int iRefIdx1 = ( eRefPicListCur == REF_PIC_LIST_1 ) ? iRefIdx : (-1);
+
+  getWpScaling( pcCU, iRefIdx0, iRefIdx1, wp0 , wp1 );
+
+  if ( iRefIdx0 < 0 ) wp0 = NULL;
+  if ( iRefIdx1 < 0 ) wp1 = NULL;
+
+  m_cDistParam.wpCur  = NULL;
+
+  if ( eRefPicListCur == REF_PIC_LIST_0 )
+  {
+    m_cDistParam.wpCur = wp0;
+  }
+  else
+  {
+    m_cDistParam.wpCur = wp1;
+  }
+}
+
+//! \}
