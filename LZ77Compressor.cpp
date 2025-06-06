@@ -13,79 +13,42 @@ void SearchTree::destruirArvore(SearchNode* no) {
 }
 
 // <-- CORREÇÃO: Parâmetro 'deslocamento' é size_t
-void SearchTree::inserir(SearchNode*& no, const std::string& substring, size_t deslocamento) {
+void SearchTree::inserir(SearchNode*& no, const std::string& substring, size_t pos) {
     if (!no) {
-        no = new SearchNode(substring, deslocamento);
+        no = new SearchNode(substring, pos); // Cria nó com a posição
         return;
     }
     if (substring < no->substring)
-        inserir(no->left, substring, deslocamento);
+        inserir(no->left, substring, pos);
     else
-        inserir(no->right, substring, deslocamento);
+        inserir(no->right, substring, pos);
 }
 
 // <-- CORREÇÃO: Parâmetros e variáveis internas são size_t
-void SearchTree::inserir(const std::vector<uint8_t>& dados, size_t pos, size_t posAtual) {
+void SearchTree::inserir(const std::vector<uint8_t>& dados, size_t pos) {
     if (pos + maxLength > dados.size()) return;
-
-    std::string substring;
-    substring.reserve(maxLength); // Otimização: pré-aloca memória
-    for (size_t i = 0; i < maxLength; ++i) {
-        if (pos + i < dados.size()) {
-            substring += dados[pos + i];
-        } else {
-            break;
-        }
-    }
-
-    if (substring.empty()) return;
-
-    // <-- LÓGICA: O deslocamento é a distância da posição atual para a posição do match
-    size_t deslocamento = posAtual - pos;
-    inserir(raiz, substring, deslocamento);
+    std::string substring(reinterpret_cast<const char*>(dados.data() + pos), maxLength);
+    inserir(raiz, substring, pos); // Passa a posição absoluta
 }
 
 // <-- CORREÇÃO: Parâmetros e variáveis internas são size_t
-void SearchTree::remover(const std::vector<uint8_t>& dados, size_t pos, size_t posAtual) {
+void SearchTree::remover(const std::vector<uint8_t>& dados, size_t pos) {
     if (pos + maxLength > dados.size()) return;
-
-    std::string substring;
-    substring.reserve(maxLength);
-    for (size_t i = 0; i < maxLength; ++i) {
-         if (pos + i < dados.size()) {
-            substring += dados[pos + i];
-        } else {
-            break;
-        }
-    }
-    if (substring.empty()) return;
-
+    std::string substring(reinterpret_cast<const char*>(dados.data() + pos), maxLength);
     remover(raiz, substring);
 }
 
 // <-- LÓGICA CRÍTICA CORRIGIDA: Sem valor sentinela (-1)
-void SearchTree::buscarMelhorCasamento(const std::vector<uint8_t>& lookahead, size_t& offset, size_t& length, size_t pos) const {
-    std::string str;
-    if (lookahead.empty()) {
-        offset = 0;
-        length = 0;
-        return;
-    }
-
-    size_t tamanhoLookahead = std::min((size_t)lookahead.size(), maxLength);
-    str.reserve(tamanhoLookahead);
-    for (size_t i = 0; i < tamanhoLookahead; ++i)
-        str += lookahead[i];
-
-    // <-- CORREÇÃO: Inicializa com "nenhum match" (0,0). A função 'buscar' atualiza se encontrar algo.
+void SearchTree::buscarMelhorCasamento(const std::vector<uint8_t>& lookahead, size_t& offset, size_t& length, size_t current_pos) const {
+    std::string str(lookahead.begin(), lookahead.end());
     offset = 0;
     length = 0;
-    buscar(raiz, str, offset, length, pos);
+    buscar(raiz, str, offset, length, current_pos);
 }
 
 
 // <-- CORREÇÃO: Todos os parâmetros e variáveis de tamanho/posição são size_t
-void SearchTree::buscar(SearchNode* no, const std::string& lookahead, size_t& melhorOffset, size_t& melhorTamanho, size_t pos) const {
+void SearchTree::buscar(SearchNode* no, const std::string& lookahead, size_t& melhorOffset, size_t& melhorTamanho, size_t current_pos) const {
     while (no) {
         size_t tamanho = 0;
         size_t maxComp = std::min(lookahead.size(), no->substring.size());
@@ -99,10 +62,11 @@ void SearchTree::buscar(SearchNode* no, const std::string& lookahead, size_t& me
 
         if (tamanho > melhorTamanho) {
             melhorTamanho = tamanho;
-            melhorOffset = no->deslocamento;
+            // CALCULA O OFFSET DINAMICAMENTE!
+            // offset = (posição atual) - (posição onde o match começou)
+            melhorOffset = current_pos - no->position;
         }
 
-        // Otimização: se o melhor match possível já foi encontrado para este ramo, não precisa descer mais
         if (melhorTamanho == lookahead.size()) return;
 
         if (lookahead < no->substring)
@@ -137,7 +101,7 @@ void SearchTree::remover(SearchNode*& no, const std::string& substring) {
                 sucessor = sucessor->left;
 
             no->substring = sucessor->substring;
-            no->deslocamento = sucessor->deslocamento;
+            no->position = sucessor->position;
             remover(no->right, sucessor->substring);
         }
     }
@@ -214,7 +178,7 @@ void LZ77Compressor::compress() {
     // <-- LÓGICA: Inicialização da árvore (preencher a primeira janela)
     size_t initialFill = std::min(dados.size(), L);
     for (size_t i = 0; i < initialFill; ++i) {
-        arvore.inserir(dados, i, i);
+        arvore.inserir(dados, i);
     }
 
     // <-- LÓGICA: Loop principal com janela deslizante (sem reconstruir a árvore)
@@ -240,15 +204,15 @@ void LZ77Compressor::compress() {
         size_t passo = melhorLength + 1;
 
         for (size_t i = 0; i < passo && (pos + i) < dados.size(); ++i) {
-            // <-- CORREÇÃO CRÍTICA: Usar tipo com sinal para evitar underflow com posições iniciais.
             ssize_t posRemover = (ssize_t)(pos + i) - S;
             size_t posInserir = pos + i + L;
 
+            // As chamadas agora são mais simples, sem 'pos + i'
             if (posRemover >= 0) {
-                 arvore.remover(dados, posRemover, pos + i);
+                arvore.remover(dados, posRemover);
             }
-            if (posInserir < dados.size()) {
-                 arvore.inserir(dados, posInserir, pos + i);
+            if (posInserir + L <= dados.size()) { // Garante que não insere substring parcial
+                arvore.inserir(dados, posInserir);
             }
         }
 

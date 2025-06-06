@@ -65,11 +65,22 @@ void LZ77Descompressor::decompress() {
 
     // Reconstrói os dados a partir das triplas
     for (const auto& [offset, length, simbolo] : triplas) {
-        for (int j = 0; j < length; ++j) {
-            if (offset == 0 || dadosDescomprimidos.size() < offset) break;
-            uint8_t byte = dadosDescomprimidos[dadosDescomprimidos.size() - offset];
-            dadosDescomprimidos.push_back(byte);
+        // A cópia só acontece se o comprimento for maior que 0
+        if (length > 0) {
+            // Verifica se o offset é válido para evitar acessos fora dos limites
+            if (offset > 0 && offset <= dadosDescomprimidos.size()) {
+
+                // 1. Determina a posição inicial da cópia ANTES do laço. Ela não vai mais mudar.
+                size_t start_pos = dadosDescomprimidos.size() - offset;
+
+                // 2. O laço agora lê da posição inicial fixa + o incremento 'j'.
+                for (int j = 0; j < length; ++j) {
+                    uint8_t byte_a_copiar = dadosDescomprimidos[start_pos + j];
+                    dadosDescomprimidos.push_back(byte_a_copiar);
+                }
+            }
         }
+        // O símbolo é adicionado no final, após a cópia (se houver).
         dadosDescomprimidos.push_back(simbolo);
     }
 

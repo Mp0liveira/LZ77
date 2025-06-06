@@ -12,33 +12,33 @@
 
 struct SearchNode {
     std::string substring;
-    size_t deslocamento; // <-- CORREÇÃO: Deslocamento pode ser grande
+    size_t position; // Armazena a posição absoluta da substring
     SearchNode *left, *right;
 
-    SearchNode(const std::string& s, size_t d) : substring(s), deslocamento(d), left(nullptr), right(nullptr) {}
+    SearchNode(const std::string& s, size_t pos) : substring(s), position(pos), left(nullptr), right(nullptr) {}
 };
 
 class SearchTree {
 public:
-    // <-- CORREÇÃO: Receber tamanho como size_t
     SearchTree(size_t L);
     ~SearchTree();
 
-    // <-- CORREÇÃO: Parâmetros atualizados para size_t
-    void inserir(const std::vector<uint8_t>& dados, size_t pos, size_t posAtual);
-    void remover(const std::vector<uint8_t>& dados, size_t pos, size_t posAtual);
-    void buscarMelhorCasamento(const std::vector<uint8_t>& lookahead, size_t& offset, size_t& length, size_t pos) const;
+    // 2. Simplifique as assinaturas. Não precisamos mais de 'posAtual'.
+    void inserir(const std::vector<uint8_t>& dados, size_t pos);
+    void remover(const std::vector<uint8_t>& dados, size_t pos);
+    void buscarMelhorCasamento(const std::vector<uint8_t>& lookahead, size_t& offset, size_t& length, size_t current_pos) const;
 
 private:
+    // ... (resto da classe, as mudanças principais estão abaixo)
     SearchNode* raiz;
-    size_t maxLength; // <-- CORREÇÃO: Armazenar como size_t
-
+    size_t maxLength;
     void destruirArvore(SearchNode* no);
-    // <-- CORREÇÃO: Parâmetros atualizados para size_t
-    void inserir(SearchNode*& no, const std::string& substring, size_t deslocamento);
+    void inserir(SearchNode*& no, const std::string& substring, size_t pos); // Recebe pos
     void remover(SearchNode*& no, const std::string& substring);
-    void buscar(SearchNode* no, const std::string& lookahead, size_t& melhorOffset, size_t& melhorTamanho, size_t pos) const;
+    // Precisa da posição atual para calcular o offset dinâmico
+    void buscar(SearchNode* no, const std::string& lookahead, size_t& melhorOffset, size_t& melhorTamanho, size_t current_pos) const;
 };
+
 
 
 class LZ77Compressor {
