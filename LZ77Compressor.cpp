@@ -2,7 +2,6 @@
 #include "Huffman/HuffmanCompressor.h"
 
 SearchTree::SearchTree(size_t L) : raiz(nullptr), maxLength(L) {}
-
 SearchTree::~SearchTree() { destruirArvore(raiz); }
 
 void SearchTree::destruirArvore(SearchNode* no) {
@@ -12,10 +11,24 @@ void SearchTree::destruirArvore(SearchNode* no) {
     delete no;
 }
 
-// <-- CORREÇÃO: Parâmetro 'deslocamento' é size_t
+void SearchTree::inserir(const std::vector<uint8_t>& dados, size_t pos) {
+    if (pos >= dados.size()) return;
+
+    // Calcula quantos bytes podemos ler com segurança
+    size_t count = std::min(maxLength, dados.size() - pos);
+    if (count == 0) return;
+
+    std::string substring(reinterpret_cast<const char*>(dados.data() + pos), count);
+    inserir(raiz, substring, pos);
+}
+
 void SearchTree::inserir(SearchNode*& no, const std::string& substring, size_t pos) {
     if (!no) {
-        no = new SearchNode(substring, pos); // Cria nó com a posição
+        no = new SearchNode(substring, pos);
+        return;
+    }
+    // Evita inserir duplicatas exatas da mesma posição
+    if (substring == no->substring && pos == no->position) {
         return;
     }
     if (substring < no->substring)
@@ -24,58 +37,57 @@ void SearchTree::inserir(SearchNode*& no, const std::string& substring, size_t p
         inserir(no->right, substring, pos);
 }
 
-// <-- CORREÇÃO: Parâmetros e variáveis internas são size_t
-void SearchTree::inserir(const std::vector<uint8_t>& dados, size_t pos) {
-    if (pos + maxLength > dados.size()) return;
-    std::string substring(reinterpret_cast<const char*>(dados.data() + pos), maxLength);
-    inserir(raiz, substring, pos); // Passa a posição absoluta
-}
-
-// <-- CORREÇÃO: Parâmetros e variáveis internas são size_t
 void SearchTree::remover(const std::vector<uint8_t>& dados, size_t pos) {
-    if (pos + maxLength > dados.size()) return;
-    std::string substring(reinterpret_cast<const char*>(dados.data() + pos), maxLength);
+    if (pos >= dados.size()) return;
+
+    size_t count = std::min(maxLength, dados.size() - pos);
+    if (count == 0) return;
+
+    std::string substring(reinterpret_cast<const char*>(dados.data() + pos), count);
     remover(raiz, substring);
 }
 
-// <-- LÓGICA CRÍTICA CORRIGIDA: Sem valor sentinela (-1)
 void SearchTree::buscarMelhorCasamento(const std::vector<uint8_t>& lookahead, size_t& offset, size_t& length, size_t current_pos) const {
+    if (lookahead.empty()) {
+        offset = 0;
+        length = 0;
+        return;
+    }
     std::string str(lookahead.begin(), lookahead.end());
     offset = 0;
     length = 0;
     buscar(raiz, str, offset, length, current_pos);
 }
 
-
-// <-- CORREÇÃO: Todos os parâmetros e variáveis de tamanho/posição são size_t
 void SearchTree::buscar(SearchNode* no, const std::string& lookahead, size_t& melhorOffset, size_t& melhorTamanho, size_t current_pos) const {
-    while (no) {
-        size_t tamanho = 0;
-        size_t maxComp = std::min(lookahead.size(), no->substring.size());
+    if (!no) return;
 
-        for (size_t i = 0; i < maxComp; ++i) {
-            if (lookahead[i] == no->substring[i])
-                ++tamanho;
-            else
-                break;
-        }
+    if (lookahead < no->substring) {
+        buscar(no->left, lookahead, melhorOffset, melhorTamanho, current_pos);
+    } else {
+        buscar(no->right, lookahead, melhorOffset, melhorTamanho, current_pos);
+    }
 
-        if (tamanho > melhorTamanho) {
-            melhorTamanho = tamanho;
-            // CALCULA O OFFSET DINAMICAMENTE!
-            // offset = (posição atual) - (posição onde o match começou)
-            melhorOffset = current_pos - no->position;
-        }
+    // Compara com o nó atual após verificar os filhos (encontra o mais próximo primeiro)
+    size_t tamanho = 0;
+    size_t maxComp = std::min(lookahead.size(), no->substring.size());
 
-        if (melhorTamanho == lookahead.size()) return;
-
-        if (lookahead < no->substring)
-            no = no->left;
+    for (size_t i = 0; i < maxComp; ++i) {
+        if (lookahead[i] == no->substring[i])
+            ++tamanho;
         else
-            no = no->right;
+            break;
+    }
+
+    // Aceita o match APENAS se ele estiver no passado (no->position < current_pos)
+    // E se o comprimento for melhor que o já encontrado.
+    if (tamanho > melhorTamanho && no->position < current_pos) {
+        melhorTamanho = tamanho;
+        melhorOffset = current_pos - no->position;
     }
 }
 
+// A função de remover nós da árvore permanece a mesma
 void SearchTree::remover(SearchNode*& no, const std::string& substring) {
     if (!no) return;
 
@@ -83,26 +95,26 @@ void SearchTree::remover(SearchNode*& no, const std::string& substring) {
         remover(no->left, substring);
     } else if (substring > no->substring) {
         remover(no->right, substring);
-    } else {
-        if (!no->left && !no->right) {
+    } else { // Encontrou a substring
+        // Nó sem filhos ou com um filho
+        if (no->left == nullptr) {
+            SearchNode* temp = no->right;
             delete no;
-            no = nullptr;
-        } else if (!no->left) {
-            SearchNode* temp = no;
-            no = no->right;
-            delete temp;
-        } else if (!no->right) {
-            SearchNode* temp = no;
-            no = no->left;
-            delete temp;
-        } else {
-            SearchNode* sucessor = no->right;
-            while (sucessor->left)
-                sucessor = sucessor->left;
+            no = temp;
+        } else if (no->right == nullptr) {
+            SearchNode* temp = no->left;
+            delete no;
+            no = temp;
+        } else { // Nó com dois filhos
+            SearchNode* temp = no->right;
+            while (temp->left != nullptr) temp = temp->left; // Encontra o sucessor in-order
 
-            no->substring = sucessor->substring;
-            no->position = sucessor->position;
-            remover(no->right, sucessor->substring);
+            // Copia o conteúdo do sucessor para este nó
+            no->substring = temp->substring;
+            no->position = temp->position;
+
+            // Remove o sucessor que foi copiado
+            remover(no->right, temp->substring);
         }
     }
 }
@@ -163,11 +175,9 @@ void LZ77Compressor::compress() {
 
     std::vector<std::tuple<uint16_t, uint16_t, uint8_t>> triplas;
 
-    // <-- CORREÇÃO: Usar size_t para consistência, embora uint16_t funcionasse.
     const size_t L = tamLookahead;
     const size_t S = tamSearch;
 
-    // <-- CORREÇÃO CRÍTICA: 'pos' deve ser size_t para evitar overflow.
     size_t pos = 0;
 
     SearchTree arvore(L);
@@ -175,15 +185,14 @@ void LZ77Compressor::compress() {
     std::cout << "=== LZ77 com Árvore de Busca e Janela Deslizante ===\n";
     std::cout << "Search Buffer: " << S << ", Lookahead Buffer: " << L << std::endl;
 
-    // <-- LÓGICA: Inicialização da árvore (preencher a primeira janela)
+    //Inicialização da árvore (preencher a primeira janela)
     size_t initialFill = std::min(dados.size(), L);
     for (size_t i = 0; i < initialFill; ++i) {
         arvore.inserir(dados, i);
     }
 
-    // <-- LÓGICA: Loop principal com janela deslizante (sem reconstruir a árvore)
+    //Loop principal com janela deslizante (sem reconstruir a árvore)
     while (pos < dados.size()) {
-        // <-- CORREÇÃO: Tipos devem ser size_t para corresponder à função chamada.
         size_t melhorOffset = 0;
         size_t melhorLength = 0;
 
@@ -197,8 +206,6 @@ void LZ77Compressor::compress() {
 
         uint8_t nextChar = (pos + melhorLength < dados.size()) ? dados[pos + melhorLength] : 0;
 
-        // <-- CORREÇÃO: static_cast para deixar a conversão de size_t para uint16_t explícita e clara.
-        // É seguro porque sabemos que offset <= S e length <= L.
         triplas.emplace_back(static_cast<uint16_t>(melhorOffset), static_cast<uint16_t>(melhorLength), nextChar);
 
         size_t passo = melhorLength + 1;
@@ -225,7 +232,7 @@ void LZ77Compressor::compress() {
 
     std::cout << "\nCompressão concluída. Total de triplas: " << triplas.size() << std::endl;
 
-
+    //debugTriplas(triplas);
     writeFile(triplas);
     huffman();
 }

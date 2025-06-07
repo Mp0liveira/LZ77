@@ -5,10 +5,10 @@
 
 int main() {
 
-    LZ77Compressor LZcompressor("TEncSearch.txt", "TEncSearch_compress", 4096, 16384);
+    LZ77Compressor LZcompressor("dom_casmurro.txt", "dom_casmurro_compress", 4096, 16384);
     LZcompressor.compress();
 
-    LZ77Descompressor LZdescompressor("TEncSearch_compress.bin", "TEncSearch_descompress.txt");
+    LZ77Descompressor LZdescompressor("dom_casmurro_compress.bin", "dom_casmurro_descompress.txt");
     LZdescompressor.decompress();
     return 0;
 }

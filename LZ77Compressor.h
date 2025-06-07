@@ -12,7 +12,7 @@
 
 struct SearchNode {
     std::string substring;
-    size_t position; // Armazena a posição absoluta da substring
+    size_t position;
     SearchNode *left, *right;
 
     SearchNode(const std::string& s, size_t pos) : substring(s), position(pos), left(nullptr), right(nullptr) {}
@@ -23,19 +23,17 @@ public:
     SearchTree(size_t L);
     ~SearchTree();
 
-    // 2. Simplifique as assinaturas. Não precisamos mais de 'posAtual'.
     void inserir(const std::vector<uint8_t>& dados, size_t pos);
     void remover(const std::vector<uint8_t>& dados, size_t pos);
     void buscarMelhorCasamento(const std::vector<uint8_t>& lookahead, size_t& offset, size_t& length, size_t current_pos) const;
 
 private:
-    // ... (resto da classe, as mudanças principais estão abaixo)
+
     SearchNode* raiz;
     size_t maxLength;
     void destruirArvore(SearchNode* no);
-    void inserir(SearchNode*& no, const std::string& substring, size_t pos); // Recebe pos
+    void inserir(SearchNode*& no, const std::string& substring, size_t pos);
     void remover(SearchNode*& no, const std::string& substring);
-    // Precisa da posição atual para calcular o offset dinâmico
     void buscar(SearchNode* no, const std::string& lookahead, size_t& melhorOffset, size_t& melhorTamanho, size_t current_pos) const;
 };
 
